@@ -32,25 +32,15 @@ string hasData(string s) {
   return "";
 }
 
-/*
-From: https://stackoverflow.com/questions/16702305/function-to-differentiate-a-polynomial-in-c
-x: value of x in the polynomial
-c: array of coefficients
-n: number of coefficients
-*/
-double derivePolynomial(Eigen::VectorXd coeffs, double x) {
-    double result = 0;
-    double p = 1;
-
-    for(int i=1; i < coeffs.size(); i++)
-    {
-        result = result + coeffs[i]*p*i;
-        p = p*x;
-    }
-
-    return result;
+// transform a point to car coordinate system
+void transformPoint(double& ptx, double& pty, const double& refx, const double& refy, const double& refpsi) {
+    double deltaX = ptx - refx;
+    double deltaY = pty - refy;
+    double cosdiff = cos(0-refpsi);
+    double sindiff = sin(0-refpsi);
+    ptx = (deltaX * cosdiff - deltaY * sindiff);
+    pty = (deltaX * sindiff + deltaY * cosdiff);
 }
-
 
 // Evaluate a polynomial.
 double polyeval(Eigen::VectorXd coeffs, double x) {
@@ -97,7 +87,7 @@ int main() {
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
     string sdata = string(data).substr(0, length);
-    cout << sdata << endl;
+    //cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
       if (s != "") {
@@ -112,59 +102,58 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
+          // transform all points to car coordinate system
+          for (auto i = 0; i < ptsx.size(); ++i) {
+              transformPoint(ptsx[i], ptsy[i], px, py, psi);
+          }
+
           Eigen::VectorXd xvals(6);
           Eigen::VectorXd yvals(6);
           xvals << ptsx[0], ptsx[1], ptsx[2], ptsx[3], ptsx[4], ptsx[5];
           yvals << ptsy[0], ptsy[1], ptsy[2], ptsy[3], ptsy[4], ptsy[5];
           Eigen::VectorXd coeffs = polyfit(xvals, yvals, 3);
 
-          double cte = py - polyeval(coeffs, px);
-
-          double polyDrv = derivePolynomial(coeffs, px);
-          double psides = atan(polyDrv);
-          double epsi = psi - psides;
-
-          std::cout << cte << ", " << psi << " - " << psides << " = " << epsi << ", polyDrv " << polyDrv << std::endl;
+          double cte = polyeval(coeffs, 0);
+          double epsi = -atan(coeffs[1]);
 
           Eigen::VectorXd state(6);
-          state << px, py, psi, v, cte, epsi;
+          state << 0, 0, 0, v, cte, epsi;
 
           /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-          double steer_value;
-          double throttle_value;
-
+           * Calculate steering angle and throttle using MPC.
+           * Both are in between [-1, 1].
+           */
           auto result = mpc.Solve(state, coeffs);
-
-          steer_value = result[6];
-          throttle_value = result[7];
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value;
-          msgJson["throttle"] = throttle_value;
+          double Lf = 2.67;
+          msgJson["steering_angle"] = -result[0]/(deg2rad(25)*Lf);
+          msgJson["throttle"] = result[1];
 
           //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals = ptsx; // TODO no
-          vector<double> mpc_y_vals = ptsy; // TODO no
+          vector<double> mpc_x_vals;
+          vector<double> mpc_y_vals;
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Green line
+          for (auto i = 2; i < result.size(); i = i + 2) {
+              mpc_x_vals.push_back(result[i]);
+              mpc_y_vals.push_back(result[i + 1]);
+          }
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
           //Display the waypoints/reference line
-          vector<double> next_x_vals = {0.0, 1.0, 2.0};
-          vector<double> next_y_vals = {0.0, 0.0, 0.0};
+          vector<double> next_x_vals;
+          vector<double> next_y_vals;
 
-          //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Yellow line
+          double poly_inc = 2.5;
+          int num_points = 25;
+          for (int i = 1; i < num_points; i++) {
+              next_x_vals.push_back(poly_inc*i);
+              next_y_vals.push_back(polyeval(coeffs, poly_inc*i));
+          }
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
@@ -181,11 +170,11 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          //this_thread::sleep_for(chrono::milliseconds(100)); // TODO enable
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
-        // Manual driving
+        // Manual drivingwd
         std::string msg = "42[\"manual\",{}]";
         ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
       }
