@@ -21,20 +21,6 @@ double dt = 0.2;
 // This is the length from front to CoG that has a similar radius.
 const double Lf = 2.67;
 
-// NOTE: feel free to play around with this
-// or do something completely different
-const double REF_CTE = 0;
-const double REF_EPSI = 0;
-const double REF_VEL = 80;
-
-const double CTE_W = 2000.0;
-const double EPSI_W = 2000.0;
-const double VEL_W = 1.0;
-const double DELTA_W = 5.0;
-const double ACC_W = 5.0;
-const double DELTA_CHANGE_W = 200.0;
-const double ACC_CHANGE_W = 10.0;
-
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
 // when one variable starts and another ends to make our lifes easier.
@@ -48,10 +34,42 @@ size_t delta_start = epsi_start + N;
 size_t a_start = delta_start + N - 1;
 
 class FG_eval {
+ private:
+    double ref_cte_;
+    double ref_epsi_;
+    double ref_vel_;
+
+    double cte_w_;
+    double epsi_w_;
+    double vel_w_;
+    double delta_w_;
+    double acc_w_;
+    double delta_change_w_;
+    double acc_change_w_;
+
  public:
   // Fitted polynomial coefficients
   Eigen::VectorXd coeffs;
-  FG_eval(Eigen::VectorXd coeffs) { this->coeffs = coeffs; }
+
+  FG_eval(Eigen::VectorXd coeffs,
+          double ref_cte = 0.0, double ref_epsi = 0.0, double ref_vel = 80.0,
+          double cte_w = 2000.0, double epsi_w = 2000.0, double vel_w = 1.0,
+          double delta_w = 5.0, double acc_w = 5.0,
+          double delta_change_w = 200.0, double acc_change_w = 10.0) {
+      this->coeffs = coeffs;
+
+      ref_cte_ = ref_cte;
+      ref_epsi_ = ref_epsi;
+      ref_vel_ = ref_vel;
+
+      cte_w_ = cte_w;
+      epsi_w_ = epsi_w;
+      vel_w_ = vel_w;
+      delta_w_ = delta_w;
+      acc_w_ = acc_w;
+      delta_change_w_ = delta_change_w;
+      acc_change_w_ = acc_change_w;
+  }
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
   // `fg` is a vector containing the cost and constraints.
@@ -63,21 +81,21 @@ class FG_eval {
 
     // Reference State Cost
     for (int t = 0; t < N; t++) {
-      fg[0] += CTE_W *  CppAD::pow(vars[cte_start + t] - REF_CTE, 2);
-      fg[0] += EPSI_W * CppAD::pow(vars[epsi_start + t] - REF_EPSI, 2);
-      fg[0] += VEL_W *  CppAD::pow(vars[v_start + t] - REF_VEL, 2);
+      fg[0] += cte_w_ *  CppAD::pow(vars[cte_start + t] - ref_cte_, 2);
+      fg[0] += epsi_w_ * CppAD::pow(vars[epsi_start + t] - ref_epsi_, 2);
+      fg[0] += vel_w_ *  CppAD::pow(vars[v_start + t] - ref_vel_, 2);
     }
 
     // Minimize the use of actuators.
     for (int t = 0; t < N - 1; t++) {
-      fg[0] += DELTA_W * CppAD::pow(vars[delta_start + t], 2);
-      fg[0] += ACC_W *   CppAD::pow(vars[a_start + t], 2);
+      fg[0] += delta_w_ * CppAD::pow(vars[delta_start + t], 2);
+      fg[0] += acc_w_ *   CppAD::pow(vars[a_start + t], 2);
     }
 
     // Minimize the value gap between sequential actuations.
     for (int t = 0; t < N - 2; t++) {
-      fg[0] += DELTA_CHANGE_W * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
-      fg[0] += ACC_CHANGE_W *   CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
+      fg[0] += delta_change_w_ * CppAD::pow(vars[delta_start + t + 1] - vars[delta_start + t], 2);
+      fg[0] += acc_change_w_ *   CppAD::pow(vars[a_start + t + 1] - vars[a_start + t], 2);
     }
 
     //
@@ -138,7 +156,11 @@ class FG_eval {
 MPC::MPC() {}
 MPC::~MPC() {}
 
-vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
+vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs,
+                          double ref_cte, double ref_epsi, double ref_vel,
+                          double cte_w, double epsi_w, double vel_w,
+                          double delta_w, double acc_w,
+                          double delta_change_w, double acc_change_w) {
   bool ok = true;
   size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
@@ -218,7 +240,11 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs) {
   constraints_upperbound[epsi_start] = epsi;
 
   // Object that computes objective and constraints
-  FG_eval fg_eval(coeffs);
+  FG_eval fg_eval(coeffs,
+                  ref_cte, ref_epsi, ref_vel,
+                  cte_w, epsi_w, vel_w,
+                  delta_w, acc_w,
+                  delta_change_w, acc_change_w);
 
   //
   // NOTE: You don't have to worry about these options

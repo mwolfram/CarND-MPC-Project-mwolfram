@@ -2,6 +2,7 @@
 #include <uWS/uWS.h>
 #include <chrono>
 #include <iostream>
+#include <fstream>
 #include <thread>
 #include <vector>
 #include "Eigen-3.3/Eigen/Core"
@@ -16,6 +17,8 @@ using json = nlohmann::json;
 constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
+
+constexpr double Lf() { return 2.67; }
 
 // Checks if the SocketIO event has JSON data.
 // If there is data the JSON object in string format will be returned,
@@ -119,17 +122,49 @@ int main() {
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
+          std::ifstream config_file("./config.cfg");
+
+          double ref_cte;
+          double ref_epsi;
+          double ref_vel;
+          double cte_w;
+          double epsi_w;
+          double vel_w;
+          double delta_w;
+          double acc_w;
+          double delta_change_w;
+          double acc_change_w;
+
+          config_file >> ref_cte;
+          config_file >> ref_epsi;
+          config_file >> ref_vel;
+          config_file >> cte_w;
+          config_file >> epsi_w;
+          config_file >> vel_w;
+          config_file >> delta_w;
+          config_file >> acc_w;
+          config_file >> delta_change_w;
+          config_file >> acc_change_w;
+
+          config_file.close();
+
+          cout << ref_cte << " " << ref_epsi << " " << ref_vel << " " << cte_w << " " << epsi_w << " " << vel_w << " " << delta_w << " " << acc_w << " " << delta_change_w << " " << acc_change_w << endl;
+
           /*
            * Calculate steering angle and throttle using MPC.
            * Both are in between [-1, 1].
            */
-          auto result = mpc.Solve(state, coeffs);
+          auto result = mpc.Solve(state, coeffs,
+                                  ref_cte, ref_epsi, ref_vel,
+                                  cte_w, epsi_w, vel_w,
+                                  delta_w, acc_w,
+                                  delta_change_w, acc_change_w);
 
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          double Lf = 2.67;
-          msgJson["steering_angle"] = -result[0]/(deg2rad(25)*Lf);
+          double angle = -result[0]/(deg2rad(25)*Lf());
+          msgJson["steering_angle"] = angle;
           msgJson["throttle"] = result[1];
 
           //Display the MPC predicted trajectory 
@@ -150,7 +185,7 @@ int main() {
 
           double poly_inc = 2.5;
           int num_points = 25;
-          for (int i = 1; i < num_points; i++) {
+          for (auto i = 1; i < num_points; i++) {
               next_x_vals.push_back(poly_inc*i);
               next_y_vals.push_back(polyeval(coeffs, poly_inc*i));
           }
@@ -170,7 +205,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          //this_thread::sleep_for(chrono::milliseconds(100)); // TODO enable
+          this_thread::sleep_for(chrono::milliseconds(100)); // TODO enable
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
