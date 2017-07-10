@@ -52,10 +52,10 @@ class FG_eval {
   Eigen::VectorXd coeffs;
 
   FG_eval(Eigen::VectorXd coeffs,
-          double ref_cte = 0.0, double ref_epsi = 0.0, double ref_vel = 80.0,
-          double cte_w = 2000.0, double epsi_w = 2000.0, double vel_w = 1.0,
-          double delta_w = 5.0, double acc_w = 5.0,
-          double delta_change_w = 200.0, double acc_change_w = 10.0) {
+          double ref_cte, double ref_epsi, double ref_vel,
+          double cte_w, double epsi_w, double vel_w,
+          double delta_w, double acc_w,
+          double delta_change_w, double acc_change_w) {
       this->coeffs = coeffs;
 
       ref_cte_ = ref_cte;
