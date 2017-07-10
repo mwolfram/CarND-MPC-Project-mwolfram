@@ -51,3 +51,5 @@ acc_change_w_: 1.0
 My approach was the following: I started with low speeds and tried to keep the car constrained to the center of the lane, without losing too much speed in the curves. At higher speeds, I had to increase the cost of CTE and PSI errors and at the same time give the car the permission to brake a little harder (lowering acc_w).
 
 ### Latency
+
+The latency is dealt with by setting dt to a value that is larger than the lag time. In my case dt is set to 200ms, whereas the lag time is 100ms.
