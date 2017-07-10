@@ -2,7 +2,9 @@
 
 ### Starting the controller
 
-The controller needs a file called ```config.cfg``` which contains all parameters for the optimizer. The file is located in the working directory (in this case the project directory). Apart from that, the controller is built and started just like it's described in the assignment.
+The controller can load a file called ```config.cfg``` which contains all parameters for the optimizer. The file is located in the working directory (in this case the project directory). This feature can be activated on lines 125 and 139-152 in main.cpp.
+
+However, for the submission, it is not active and thus the config-file is not necessary.
 
 ### Preprocessing of Waypoints
 

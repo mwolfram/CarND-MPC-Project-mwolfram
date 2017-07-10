@@ -122,19 +122,20 @@ int main() {
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
-          std::ifstream config_file("./config.cfg");
+          //std::ifstream config_file("./config.cfg");
 
-          double ref_cte;
-          double ref_epsi;
-          double ref_vel;
-          double cte_w;
-          double epsi_w;
-          double vel_w;
-          double delta_w;
-          double acc_w;
-          double delta_change_w;
-          double acc_change_w;
+          double ref_cte = 0.0;
+          double ref_epsi = 0.0;
+          double ref_vel = 100.0;
+          double cte_w = 1700.0;
+          double epsi_w = 1200.0;
+          double vel_w = 1.0;
+          double delta_w = 1.0;
+          double acc_w = 12.0;
+          double delta_change_w = 5.0;
+          double acc_change_w = 1.0;
 
+          /*
           config_file >> ref_cte;
           config_file >> ref_epsi;
           config_file >> ref_vel;
@@ -149,6 +150,7 @@ int main() {
           config_file.close();
 
           cout << ref_cte << " " << ref_epsi << " " << ref_vel << " " << cte_w << " " << epsi_w << " " << vel_w << " " << delta_w << " " << acc_w << " " << delta_change_w << " " << acc_change_w << endl;
+          */
 
           /*
            * Calculate steering angle and throttle using MPC.
