@@ -10,6 +10,9 @@
 #include "MPC.h"
 #include "json.hpp"
 
+// CONVERSION FACTOR MPH to MPS
+const double MPH_TO_MPS = 0.44704;
+
 // for convenience
 using json = nlohmann::json;
 
@@ -84,7 +87,10 @@ int main() {
   // MPC is initialized here!
   MPC mpc;
 
-  h.onMessage([&mpc](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
+  double previous_acc = 0.0;
+  double previous_delta = 0.0;
+
+  h.onMessage([&mpc, &previous_acc, &previous_delta](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -110,6 +116,14 @@ int main() {
               transformPoint(ptsx[i], ptsy[i], px, py, psi);
           }
 
+          // car position and orientation can now be assumed zero
+          px = 0.0;
+          py = 0.0;
+          psi = 0.0;
+
+          // convert MPH to m/sec
+          v *= MPH_TO_MPS;
+
           Eigen::VectorXd xvals(6);
           Eigen::VectorXd yvals(6);
           xvals << ptsx[0], ptsx[1], ptsx[2], ptsx[3], ptsx[4], ptsx[5];
@@ -119,21 +133,19 @@ int main() {
           double cte = polyeval(coeffs, 0);
           double epsi = -atan(coeffs[1]);
 
-          Eigen::VectorXd state(6);
-          state << 0, 0, 0, v, cte, epsi;
-
           //std::ifstream config_file("./config.cfg");
 
           double ref_cte = 0.0;
           double ref_epsi = 0.0;
-          double ref_vel = 100.0;
-          double cte_w = 1700.0;
-          double epsi_w = 1200.0;
+          double ref_vel = 23.0; // given in m/sec
+          double cte_w = 2.0;
+          double epsi_w = 15.0;
           double vel_w = 1.0;
-          double delta_w = 1.0;
-          double acc_w = 12.0;
+          double delta_w = 2500.0;
+          double acc_w = 1.0;
           double delta_change_w = 5.0;
-          double acc_change_w = 1.0;
+          double acc_change_w = 70.0;
+          double sim_t = 0.1;
 
           /*
           config_file >> ref_cte;
@@ -146,11 +158,24 @@ int main() {
           config_file >> acc_w;
           config_file >> delta_change_w;
           config_file >> acc_change_w;
+          config_file >> sim_t;
 
           config_file.close();
 
           cout << ref_cte << " " << ref_epsi << " " << ref_vel << " " << cte_w << " " << epsi_w << " " << vel_w << " " << delta_w << " " << acc_w << " " << delta_change_w << " " << acc_change_w << endl;
           */
+
+          // forward-simulate car by latency
+          px = (px + v * cos(psi) * sim_t);
+          py = (py + v * sin(psi) * sim_t);
+          psi = (psi + (v/Lf()) * previous_delta * sim_t);
+          v = (v + previous_acc * sim_t);
+          cte = cte + (v * sin(epsi) * sim_t);
+          epsi = epsi + v * previous_delta / Lf() * sim_t;
+
+          Eigen::VectorXd state(6);
+          state << px, py, psi, v, cte, epsi;
+
 
           /*
            * Calculate steering angle and throttle using MPC.
@@ -168,6 +193,9 @@ int main() {
           double angle = -result[0]/(deg2rad(25)*Lf());
           msgJson["steering_angle"] = angle;
           msgJson["throttle"] = result[1];
+
+          previous_delta = angle;
+          previous_acc = result[1];
 
           //Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;

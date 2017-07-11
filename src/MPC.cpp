@@ -6,8 +6,8 @@
 using CppAD::AD;
 
 // TODO: Set N and dt
-size_t N = 10;
-double dt = 0.2;
+size_t N = 15;
+double dt = 0.1;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -277,7 +277,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs,
 
   // Cost
   auto cost = solution.obj_value;
-  std::cout << "Cost " << cost << std::endl;
+  //std::cout << "Cost " << cost << std::endl;
 
   vector<double> result;
   result.push_back(solution.x[delta_start]);
