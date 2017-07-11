@@ -29,7 +29,7 @@ The first three values are zeroed out, as I already transformed my waypoints int
 
 The velocity is given in MPH, so it is converted to m/sec. **cte** and **epsi** have to be calculated manually. First a polynomial has to be fit to the waypoints that we receive and that were already converted to car coordinates. Then, for **cte**, the polynomial has to be evaluated at the height of the car and compared with the car position. For **epsi** on the other hand, the derivative of the polynomial has to be evaluated and compared with the car orientation.
 
-I forward-simulate these values by 100ms, then pass them to a solver that will return the actuator signals, which are steering and throttle. For this, I have to pass the solver a set of constraints that it can work wit, namely the update equations of the vehicle (starting on line 136 in MPC.cpp) and a cost function with several parameters that need to be tuned (starting on line 82 in MPC.cpp).
+I forward-simulate these values by 100ms, then pass them to a solver that will return the actuator signals, which are steering and throttle. For this, I have to pass the solver a set of constraints that it can work with, namely the update equations of the vehicle (starting on line 136 in MPC.cpp) and a cost function with several parameters that need to be tuned (starting on line 82 in MPC.cpp).
 
 ### Tuning controller parameters
 
@@ -54,4 +54,4 @@ delta_change_w_: 5.0
 acc_change_w_: 70.0
 ```
 
-My approach was the following: I started with low speeds and tried to keep the car constrained to the center of the lane, without getting too much oscillation in the curves. I put a high weight on turning commands and then gave the car just the incentive that was necessary to keep to the center (cte_w) and maintain the desired orientation (epsi_w).
+My approach was the following: I started with low speeds and tried to keep the car constrained to the center of the lane, without getting too much oscillation in the curves. I put a high weight on turning commands and then gave the car just the incentive that was necessary to keep to the center (cte_w) and maintain the desired orientation (epsi_w). With delta_change_w and acc_change_w I tried to keep sudden accelerations and changes in turning to a minimum, however introducing too high values here would render the car unable to react quickly enough.
